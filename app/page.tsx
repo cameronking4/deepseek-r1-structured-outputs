@@ -42,6 +42,38 @@ type Message = {
 
 type ApiRoute = 'basic' | 'structured' | 'tool-calling'
 
+type ApiInfo = {
+  description: string;
+  examples: string[];
+}
+
+const API_INFO: Record<ApiRoute, ApiInfo> = {
+  structured: {
+    description: "Uses GPT 4o-mini with structured output to create JSON object after DeepSeek R1 reasoning. The schema includes: summary, bullet points, chain of thought length and follow up suggestions.",
+    examples: [
+      "Explain why the sky appears blue",
+      "What would happen if the moon disappeared?",
+      "How do plants convert sunlight into energy?"
+    ]
+  },
+  basic: {
+    description: "Simple question-answer format without structured reasoning steps. Uses GPT 3.5-turbo to summarize the answer briefly.",
+    examples: [
+      "What is the capital of France?",
+      "How many planets are in our solar system?",
+      "What is photosynthesis?"
+    ]
+  },
+  'tool-calling': {
+    description: "Enables the AI to use external tools and APIs to enhance its responses with real-time data with GPT 4o-mini.",
+    examples: [
+      "What's the current weather in New York?",
+      "Calculate the square root of 756",
+      "Convert 100 USD to EUR"
+    ]
+  }
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -119,6 +151,32 @@ export default function Home() {
           </SelectContent>
         </Select>
       </header>
+
+      <Card className="mb-4 bg-muted/50">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Brain className="w-5 h-5" />
+            <h2 className="font-semibold">Using {apiRoute} API</h2>
+          </div>
+          <p className="text-sm text-muted-foreground mb-2">
+            {API_INFO[apiRoute].description}
+          </p>
+          <div className="text-sm">
+            <span className="font-medium">Try asking:</span>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {API_INFO[apiRoute].examples.map((example, i) => (
+                <button
+                  key={i}
+                  onClick={() => setInput(example)}
+                  className="text-xs bg-primary/10 hover:bg-primary/20 rounded-full px-3 py-1 transition-colors"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex-1 overflow-y-auto mb-4 space-y-4">
         {messages.map((message, i) => (
