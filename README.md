@@ -1,5 +1,7 @@
 # DeepSeek Reasoning + OpenAI summarization
 
+https://github.com/user-attachments/assets/b6c07eea-7eba-4621-b2e5-f0bb97a5b964
+
 As of 1/26/2025, DeepSeek's R1 model does not support structured outputs and tool calling.. This project is a proof of concept for how to use DeepSeek's reasoning model to analyze questions in detail and then use GPT's summarization power to create a structured output and make tool calls while keeping the cost down.
 
 ## Project Description
