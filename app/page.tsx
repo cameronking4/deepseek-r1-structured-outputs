@@ -40,7 +40,7 @@ type Message = {
   }
 }
 
-type ApiRoute = 'basic' | 'structured'
+type ApiRoute = 'basic' | 'structured' | 'tool-calling'
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([])
@@ -65,11 +65,18 @@ export default function Home() {
     setMessages(prev => [...prev, { role: 'user', content: input }])
     
     try {
-      const response = await fetch(apiRoute === 'structured' ? '/api/structured' : '/api', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: input }),
-      })
+      const response = await fetch(
+        apiRoute === 'structured' 
+          ? '/api/structured' 
+          : apiRoute === 'tool-calling'
+            ? '/api/tool-calling'
+            : '/api', 
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: input }),
+        }
+      )
 
       const data = await response.json()
       const timing = Date.now() - startTime
@@ -108,6 +115,7 @@ export default function Home() {
           <SelectContent>
             <SelectItem value="structured">Structured API</SelectItem>
             <SelectItem value="basic">Basic API</SelectItem>
+            <SelectItem value="tool-calling">Tool Calling API</SelectItem>
           </SelectContent>
         </Select>
       </header>

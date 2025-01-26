@@ -7,6 +7,7 @@ const SUMMARIZER_MODEL = "gpt-4o-mini";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 
 const DEEPSEEK_API_URL = "https://api.deepseek.com";
 // const OPEN_ROUTER_API_URL = "https://openrouter.ai/api/v1";
@@ -41,29 +42,6 @@ export async function POST(request: NextRequest) {
       apiKey: OPENAI_API_KEY,
     });
 
-    const jsonSchema = {
-      type: "object",
-      properties: {
-        summary: { type: "string", description: "A one-sentence summary of the answer." },
-        bullet_points: {
-          type: "array",
-          items: { type: "string" },
-          description: "Key points related to the answer.",
-        },
-        reasoning_steps: {
-          type: "number",
-          description: "The length of the reasoning / steps in the chain of thought provided.",
-        },
-        follow_up_prompts: {
-          type: "array",
-          items: { type: "string" },
-          description: "Suggested prompts for follow-up conversations.",
-        },
-      },
-      required: ["summary", "bullet_points", "reasoning_length", "follow_up_prompts"],
-      additionalProperties: false,
-    };
-
     const openaiResponse = await openai.chat.completions.create({
       model: SUMMARIZER_MODEL,
       messages: [
@@ -83,24 +61,40 @@ export async function POST(request: NextRequest) {
             `,
         },
       ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "structured_response",
-          schema: jsonSchema,
-          strict: true,
-        },
-      },
+      functions: functions,
+      function_call: "auto",
     });
 
-    const summary = JSON.stringify(openaiResponse.choices[0]?.message.content, null, 2) ?? '';
+    const responseMessage = openaiResponse.choices[0].message;
 
-    // Return the results
+    if (responseMessage.tool_calls) {
+      console.log("Function call detected:", responseMessage.tool_calls);
+
+      // Parse the function call
+      const toolCall = responseMessage.tool_calls[0];
+      const args = JSON.parse(toolCall.function.arguments);
+
+      if (toolCall.function.name === "performWebSearch") {
+        const result = await performWebSearch(args.query);
+
+        // Return result to the user
+        console.log(`Web Search Results for "${args.query}":`, result);
+
+        // Return the results
+        return NextResponse.json({
+          question,
+          reasoning,
+          summary: result,
+        });
+      }
+    } else {
+       // Return the results
     return NextResponse.json({
       question,
       reasoning,
-      summary,
+      summary: responseMessage.content,
     });
+    }
 
   } catch (error) {
     console.error('Error processing request:', error);
@@ -110,3 +104,58 @@ export async function POST(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
+// Update the function to perform web search
+async function performWebSearch(query: string) {
+  const url = 'https://api.tavily.com/search';
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': TAVILY_API_KEY!
+      },
+      body: JSON.stringify({
+        query: query,
+        search_depth: "advanced",
+        include_images: false,
+        include_answer: true,
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Tavily API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      answer: data.answer,
+      results: data.results.slice(0, 5).map((result: any) => ({
+        title: result.title,
+        url: result.url,
+        content: result.content
+      }))
+    };
+  } catch (error) {
+    console.error('Error performing web search:', error);
+    return null;
+  }
+}
+
+// Define function schema for OpenAI tool calling
+const functions = [
+  {
+    name: "performWebSearch",
+    description: "Search the web for current information on a given topic or query.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The search query to find information about.",
+        }
+      },
+      required: ["query"],
+    },
+  }
+];
